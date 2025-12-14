@@ -13,13 +13,13 @@ permissions:
 env:
   PYTHON_VERSION: "3.12"
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ toLower(github.repository) }}/python3-app
-
+  IMAGE_REPO_SUFFIX: python3-app
 
 jobs:
   test:
     name: Unit tests
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,13 +59,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) Build wheels on runner (outside docker), then docker build uses offline wheels/
+      # Build wheels on runner (SSL ok) and then Docker build installs offline from wheels/
       - name: Set up Python (for wheels)
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Build wheels (linux)
+      - name: Build wheels (linux/amd64)
         run: |
           python -m pip install --upgrade pip
           rm -rf python3-app/wheels
@@ -75,9 +75,7 @@ jobs:
           pip download -r python3-app/requirements.txt -d python3-app/wheels
           pip download -d python3-app/wheels "setuptools>=40.8.0" wheel
 
-          # IMPORTANT:
-          # If your Docker build runs on ARM (aarch64) locally, you required aarch64 wheels.
-          # In GitHub Actions we build linux/amd64 by default, so we fetch amd64 wheels to match.
+          # force linux wheel for tornado so docker (linux) can install it offline
           pip download -d python3-app/wheels \
             --only-binary=:all: \
             --platform manylinux2014_x86_64 \
@@ -126,18 +124,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare image name (lowercase)
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}/${IMAGE_REPO_SUFFIX}" >> $GITHUB_ENV
+
       - name: Set up Python (for wheels)
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Build wheels (linux)
+      - name: Build wheels (linux/amd64)
         run: |
           python -m pip install --upgrade pip
           rm -rf python3-app/wheels
           mkdir -p python3-app/wheels
+
           pip download -r python3-app/requirements.txt -d python3-app/wheels
           pip download -d python3-app/wheels "setuptools>=40.8.0" wheel
+
           pip download -d python3-app/wheels \
             --only-binary=:all: \
             --platform manylinux2014_x86_64 \
@@ -149,7 +153,7 @@ jobs:
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -162,4 +166,3 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-
