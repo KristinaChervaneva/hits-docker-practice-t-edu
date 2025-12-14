@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: ./python3-app
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_HOST=host.docker.internal
+      - REDIS_PORT=6379
+    ports:
+      - "8888:8888"
