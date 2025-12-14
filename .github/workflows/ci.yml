@@ -12,7 +12,9 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/python3-app
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ toLower(github.repository) }}/python3-app
+
 
 jobs:
   test:
@@ -158,5 +160,6 @@ jobs:
           file: ./python3-app/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
